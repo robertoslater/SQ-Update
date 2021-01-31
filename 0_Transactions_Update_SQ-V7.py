@@ -77,6 +77,10 @@ df_export_performance['Monat'] = pd.DatetimeIndex(df_export_performance['Datum']
 
 # list of columns selector
 lst_header_perf = ['Name','Transaktionen','Jahr','Monat']
+#DataFrame.replace(to_replace=None, value=None, inplace=False, limit=None, regex=False, method=’pad’, axis=None)
+
+df_export_performance['Nettobetrag in der Währung des Kontos'] = pd.DataFrame.replace("'")
+print(df_export_performance['Nettobetrag in der Währung des Kontos'])
 
 df_export_performance_values = df_export_performance.groupby(lst_header_perf)['Nettobetrag in der Währung des Kontos'].sum()
 
