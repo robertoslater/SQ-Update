@@ -17,6 +17,18 @@ from googleapiclient.discovery import build
 from google_auth_oauthlib.flow import InstalledAppFlow
 from google.auth.transport.requests import Request
 
+import tkinter as tk
+from tkinter import simpledialog
+
+#ROOT = tk.Tk()
+
+#ROOT.withdraw()
+# the input dialog
+#USER_INP = simpledialog.askstring(title="Test",
+ #                                 prompt="What's your Name?:")
+
+# check it out
+#print("Hello", USER_INP)
 
 # ---------------
 # File evaluation
@@ -135,7 +147,7 @@ def storeDataToGoogleSheet(SAMPLE_SPREADSHEET_ID_input, SAMPLE_RANGE_NAME, df_go
         print('Sheet successfully Updated')
 
     Export_Data_To_Sheets()
-    print(df_export_dividende)
+   # print(df_export_dividende)
  #call storeDataToGoogleSheet function
 storeDataToGoogleSheet('1RX2lJwZYWUO_sJUME1M9CsMFkGQNEqMCiY2Y6vCZjF0', 'SUMMARY!B53', df_export_dividende, 'COLUMNS')
 storeDataToGoogleSheet('1RX2lJwZYWUO_sJUME1M9CsMFkGQNEqMCiY2Y6vCZjF0', 'HISTORIC-DATA!A03', df_export_kosten_total, 'COLUMNS')
