@@ -1,0 +1,162 @@
+#------------------------------------------------------
+# VERSION: 7.0
+# Stock-Monitor Update from Swissquote Transaction file
+# Roberto Schlatter
+# 30-01-2021
+# Excel Import -> vorher Spalten als Zahlen
+# formatieren und file als *.xlsx abspeichern
+# Spalte Nettobetrag.... Tausender Trennzeichen entfernt
+#-------------------------------------------------------
+
+import pandas as pd
+
+# For Google Sheet functions
+import pickle
+import os.path
+import os
+from googleapiclient.discovery import build
+from google_auth_oauthlib.flow import InstalledAppFlow
+from google.auth.transport.requests import Request
+from google.protobuf import service
+
+# ------------------------------------------
+# Pre Definition for Test run and final run
+# ------------------------------------------
+
+sTestRun = True
+
+if sTestRun:
+    sGoogleSheet = "17iBlVZySEFsqI9RjPR6hVrlD_QtQ-zc46bKuar0nFOk"
+else:
+    sGoogleSheet = "1RX2lJwZYWUO_sJUME1M9CsMFkGQNEqMCiY2Y6vCZjF0"
+
+
+# ---------------
+# File evaluation
+#----------------
+# aktueller Filename im gleichen Verzeichnis wie das Python Fileß
+sFilename = 'transactions-from-01102010-to-10032021.xlsx'
+
+df_transactions = pd.read_excel(sFilename, index_col=1)
+
+lst_header = ['Transaktionen', 'Name']
+
+#----------
+# DIVIDENDE
+#----------
+# Filter table to show only columns "Transaktionen", "Name"
+df_dividende = df_transactions[df_transactions['Transaktionen'].isin(['Dividende'])]
+
+df_dividende['Nettobetrag in der Währung des Kontos'] = pd.to_numeric(df_dividende['Nettobetrag in der Währung des Kontos'])
+
+# Final dataframe for dividends
+lst_header_div = ['Symbol']
+df_export_dividende = df_dividende.groupby(lst_header_div)['Nettobetrag in der Währung des Kontos'].sum()
+
+#Create new Columns with Jahr and Monat as extracted from "Datum"
+df_dividende['Jahr'] = pd.DatetimeIndex(df_dividende['Datum']).year
+df_dividende['Monat'] = pd.DatetimeIndex(df_dividende['Datum']).month
+
+#Nach Datum sortiert
+lst_header_div = ['Jahr', 'Monat', 'Name']
+df_export_dividende_2 = df_dividende.groupby(lst_header_div)['Nettobetrag in der Währung des Kontos'].sum()
+
+print("Dividende: ", df_export_dividende_2)
+
+
+#-------
+# KOSTEN
+#-------
+# KAUF & VERKAUF Kosten
+df_kosten_total = df_transactions[df_transactions['Transaktionen'].isin(['Kauf', 'Verkauf'])]
+
+df_kosten_total['Jahr'] = pd.DatetimeIndex(df_kosten_total['Datum']).year
+df_kosten_total['Monat'] = pd.DatetimeIndex(df_kosten_total['Datum']).month
+
+# Final dataframe for costs
+#Nach Datum sortiert
+lst_header_cost = ['Transaktionen','Name', 'Jahr', 'Monat']
+df_export_kosten_total = df_kosten_total.groupby(lst_header_cost)['Kosten'].sum()
+
+print(df_export_kosten_total)
+
+#----------------------------------------------
+# Transaktionen - total performance Berechnung
+#----------------------------------------------
+df_export_performance = df_transactions[df_transactions['Transaktionen'].isin(['Kauf', 'Verkauf'])]
+
+df_export_performance = df_export_performance[['Datum', 'Transaktionen', 'Symbol', 'Name', 'Anzahl', 'Stückpreis', 'Kosten', 'Nettobetrag in der Währung des Kontos', 'Währung Nettobetrag']]
+
+#Create new Columns with Jahr and Monat as extracted from "Datum"
+df_export_performance['Jahr'] = pd.DatetimeIndex(df_export_performance['Datum']).year 
+df_export_performance['Monat'] = pd.DatetimeIndex(df_export_performance['Datum']).month
+
+# list of columns selector
+lst_header_perf = ['Name','Transaktionen','Jahr','Monat']
+
+# Remove tausender Trennzeichen um Kolonne als Zahlenwert beim Summieren zu verewenden
+df_export_performance['Nettobetrag in der Währung des Kontos'] = df_export_performance['Nettobetrag in der Währung des Kontos'].replace("'")
+
+#print(df_export_performance['Nettobetrag in der Währung des Kontos'])
+
+df_export_performance_values = df_export_performance.groupby(lst_header_perf)['Nettobetrag in der Währung des Kontos'].sum()
+
+print("PERFORMANCE: ", df_export_performance_values)
+
+#----------------------------------------
+# Google Sheets Storing - STOCK-MONITOR
+#----------------------------------------
+
+def storeDataToGoogleSheet(SAMPLE_SPREADSHEET_ID_input, SAMPLE_RANGE_NAME, df_gold, sOrientation):
+    def Create_Service(client_secret_file, api_service_name, api_version, *scopes):
+        global service
+        SCOPES = [scope for scope in scopes[0]]
+        #print(SCOPES)
+        cred = None
+
+        if os.path.exists('token_write.pickle'):
+            with open('token_write.pickle', 'rb') as token:
+                cred = pickle.load(token)
+
+        if not cred or not cred.valid:
+            if cred and cred.expired and cred.refresh_token:
+                cred.refresh(Request())
+            else:
+                flow = InstalledAppFlow.from_client_secrets_file(client_secret_file, SCOPES)
+                cred = flow.run_local_server()
+
+            with open('token_write.pickle', 'wb') as token:
+                pickle.dump(cred, token)
+
+        try:
+            service = build(api_service_name, api_version, credentials=cred)
+            print(api_service_name, 'service created successfully')
+            #return service
+        except Exception as e:
+            print(e)
+            #return None
+
+    # change 'my_json_file.json' by your downloaded JSON file: my_credentials.json
+    Create_Service('my_credentials.json', 'sheets', 'v4',['https://www.googleapis.com/auth/spreadsheets'])
+
+    def Export_Data_To_Sheets():
+        response_date = service.spreadsheets().values().update(
+            spreadsheetId=SAMPLE_SPREADSHEET_ID_input,
+            valueInputOption='RAW',
+            range=SAMPLE_RANGE_NAME,
+            body=dict(
+                #Orientation: ROWS oder COLUMNS
+                majorDimension=sOrientation,
+                values=df_gold.T.reset_index().T.values.tolist())
+        ).execute()
+        print('Sheet successfully Updated')
+
+    Export_Data_To_Sheets()
+
+#call storeDataToGoogleSheet function
+storeDataToGoogleSheet(sGoogleSheet, 'SUMMARY!B55', df_export_dividende, 'COLUMNS')
+storeDataToGoogleSheet(sGoogleSheet, 'HISTORIC-DATA!A03', df_export_kosten_total, 'COLUMNS')
+storeDataToGoogleSheet(sGoogleSheet, 'HISTORIC-DATA!R03', df_export_performance_values, 'COLUMNS')
+storeDataToGoogleSheet(sGoogleSheet, 'HISTORIC-DATA!M03', df_export_dividende_2, 'COLUMNS')
+
+
