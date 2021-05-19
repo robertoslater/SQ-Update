@@ -189,7 +189,13 @@ df_sumInvestment['Jahr'] = pd.DatetimeIndex(df_sumInvestment.iloc[:,0]).year
 df_sumInvestment = df_sumInvestment[['Jahr', 'Nettobetrag']]
 df_sumInvestment_total = df_sumInvestment.groupby('Jahr')['Nettobetrag'].sum()
 
-print(df_sumInvestment_total)
+# AUSZAHLUNGEN - 'Auszahlung' pro Jahr
+df_sumInvestment_out = df_transactions[df_transactions['Transaktionen'].isin(['Auszahlung'])]
+df_sumInvestment_out['Jahr'] = pd.DatetimeIndex(df_sumInvestment_out.iloc[:,0]).year
+df_sumInvestment_out = df_sumInvestment_out[['Jahr', 'Nettobetrag']]
+df_sumInvestment_out_total = df_sumInvestment_out.groupby('Jahr')['Nettobetrag'].sum()
+
+print(df_sumInvestment_out_total)
 
 #----------------------------------------
 # Google Sheets Storing - STOCK-MONITOR
@@ -290,5 +296,9 @@ storeDataToGoogleSheet(sGoogleSheet, 'HISTORIC-DATA!BG03', df_numberAssets_count
 # Anzahl Initial Value Kauf ASSETS
 storeDataToGoogleSheet(sGoogleSheet, 'HISTORIC-DATA!BC03', df_numberAssets_count_nettobetrag, 'COLUMNS', False)
 
-# Investments pro Jahr
+# Einzahlungen pro Jahr
 storeDataToGoogleSheet(sGoogleSheet, 'HISTORIC-DATA!BO03', df_sumInvestment_total, 'COLUMNS', False)
+
+# Auszahlungen pro Jahr
+storeDataToGoogleSheet(sGoogleSheet, 'HISTORIC-DATA!BR03', df_sumInvestment_out_total, 'COLUMNS', False)
+
